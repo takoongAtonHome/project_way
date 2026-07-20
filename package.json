@@ -1,0 +1,13 @@
+{
+  "name": "eodijjeum",
+  "version": "0.1.0",
+  "description": "어디쯤 — 모임 실시간 위치/ETA 공유 (프로토타입)",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  }
+}

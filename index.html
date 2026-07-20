@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#4f46e5" />
+<title>어디쯤 · 프로토타입</title>
+<style>
+  :root{
+    --brand:#4f46e5; --brand-d:#4338ca; --bg:#f4f5f9; --card:#ffffff;
+    --ink:#1a1a2e; --sub:#6b7280; --line:#e7e8ef;
+    --coming:#f97316; --me:#2563eb; --arrived:#10b981;
+    --shadow:0 6px 24px rgba(24,24,50,.12);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    background:#dfe1ee; color:var(--ink); display:flex; justify-content:center; align-items:center;
+  }
+  #phone{
+    position:relative; width:100%; max-width:412px; height:100dvh; max-height:900px;
+    background:var(--bg); overflow:hidden; box-shadow:var(--shadow);
+    display:flex; flex-direction:column;
+  }
+  @media(min-width:460px){ #phone{ border-radius:32px; margin:14px; height:min(880px,94dvh);} }
+
+  .screen{ position:absolute; inset:0; display:none; flex-direction:column; background:var(--bg); }
+  .screen.active{ display:flex; }
+
+  .topbar{ display:flex; align-items:center; gap:10px; padding:16px 16px 12px; }
+  .topbar .back{ font-size:22px; background:none; border:none; color:var(--ink); padding:4px; cursor:pointer;}
+  .topbar h1{ font-size:18px; margin:0; font-weight:700;}
+  .body{ flex:1; overflow-y:auto; padding:4px 18px 18px; }
+  .label{ font-size:13px; font-weight:600; color:var(--sub); margin:18px 0 8px; display:flex; align-items:center; gap:6px;}
+  .field{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 14px; font-size:16px; width:100%; color:var(--ink);}
+  .field::placeholder{ color:#a7abbb;}
+  .row2{ display:flex; gap:10px;} .row2>div{flex:1;}
+  .btn{ border:none; border-radius:14px; padding:16px; font-size:16px; font-weight:700; width:100%; cursor:pointer; }
+  .btn-primary{ background:var(--brand); color:#fff; box-shadow:0 6px 16px rgba(79,70,229,.32);}
+  .btn-primary:active{ background:var(--brand-d);}
+  .btn-ghost{ background:#ecedf5; color:var(--brand); }
+  .btn-line{ background:#fff; color:var(--ink); border:1px solid var(--line);}
+  .footer{ padding:14px 18px calc(18px + env(safe-area-inset-bottom)); background:linear-gradient(0deg,var(--bg) 70%,transparent); }
+  .muted{ color:var(--sub); font-size:13px; line-height:1.5;}
+
+  #home{ justify-content:center; align-items:center; text-align:center; padding:32px; background:
+     radial-gradient(120% 60% at 50% -10%, #6366f1 0%, #4f46e5 42%, #3f38b8 100%); color:#fff;}
+  #home .logo{ font-size:54px; }
+  #home h1{ font-size:30px; margin:14px 0 6px; letter-spacing:-.5px;}
+  #home p{ margin:0 0 34px; opacity:.9; font-size:15px; line-height:1.5;}
+  #home .btn-primary{ background:#fff; color:var(--brand); box-shadow:0 10px 24px rgba(0,0,0,.18);}
+  #home .btn-ghost{ background:rgba(255,255,255,.16); color:#fff; margin-top:12px;}
+  #home .stack{ width:100%; max-width:320px;}
+  .badgechip{ position:absolute; top:18px; right:16px; background:rgba(255,255,255,.18); color:#fff;
+     font-size:11px; padding:5px 10px; border-radius:999px; letter-spacing:.3px;}
+  #modeNote{ margin-top:26px; font-size:12px; opacity:.82; max-width:300px;}
+
+  .infocard{ background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow:var(--shadow);}
+  .infocard h2{ margin:0 0 12px; font-size:19px;}
+  .info-line{ display:flex; align-items:center; gap:9px; font-size:15px; color:#374151; margin:7px 0;}
+
+  .linkbox{ display:flex; align-items:center; gap:8px; background:#f0f1f8; border:1px dashed #c7c9e0;
+     border-radius:12px; padding:12px 12px; margin-top:6px;}
+  .linkbox code{ flex:1; font-size:14px; color:#4b4f6b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .copybtn{ background:var(--brand); color:#fff; border:none; border-radius:9px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer;}
+  .success-emoji{ text-align:center; font-size:46px; margin:20px 0 4px;}
+
+  /* ===== MAP SCREEN ===== */
+  #map .maparea{ position:relative; flex:1; overflow:hidden; background:#e9ecf5; }
+  #kakaoMap{ position:absolute; inset:0; }
+  /* mock map bg (fallback) */
+  .mapbg{ position:absolute; inset:0; display:none;}
+  .mapbg.on{ display:block;}
+  .road{ position:absolute; background:#f7f8fc; }
+  .road.h{ height:26px; left:-5%; width:110%; border-top:1px solid #dfe2ef; border-bottom:1px solid #dfe2ef;}
+  .road.v{ width:26px; top:-5%; height:110%; border-left:1px solid #dfe2ef; border-right:1px solid #dfe2ef;}
+  .block{ position:absolute; background:#eef0f7; border-radius:5px;}
+  .park{ position:absolute; background:#dcecdd; border-radius:10px;}
+
+  /* markers used by BOTH mock(absolute %) and real(kakao CustomOverlay) */
+  .marker{ text-align:center; pointer-events:none;}
+  .marker.mock{ position:absolute; transform:translate(-50%,-100%); transition:left .8s linear, top .8s linear; z-index:5;}
+  .marker .dot{ width:20px; height:20px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); margin:0 auto; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.28);}
+  .marker .nm{ display:inline-block; margin-top:5px; background:#fff; font-size:11px; font-weight:700; padding:2px 7px; border-radius:999px; box-shadow:0 1px 4px rgba(0,0,0,.16); white-space:nowrap;}
+  .marker.me .dot{ background:var(--me);} .marker.me .nm{ color:var(--me);}
+  .marker.coming .dot{ background:var(--coming);} .marker.coming .nm{ color:#c2410c;}
+  .marker.dest .flag{ font-size:30px; filter:drop-shadow(0 3px 4px rgba(0,0,0,.25));}
+  .marker.dest .nm{ color:var(--ink);}
+
+  .mtopbar{ position:absolute; top:0; left:0; right:0; z-index:10; display:flex; align-items:center; justify-content:space-between;
+     padding:14px 16px; background:linear-gradient(#fff 55%, rgba(255,255,255,0)); }
+  .mtopbar .t{ font-weight:700; font-size:16px;} .mtopbar .s{ font-size:12px; color:var(--sub);}
+  .mtopbar .x{ background:#fff; border:1px solid var(--line); width:34px;height:34px;border-radius:50%; font-size:16px; cursor:pointer;}
+
+  .modechip{ position:absolute; top:60px; left:16px; z-index:9; font-size:11px; font-weight:700;
+     padding:5px 10px; border-radius:999px; box-shadow:0 2px 8px rgba(0,0,0,.12);}
+  .modechip.demo{ background:#fef3c7; color:#92400e;}
+  .modechip.real{ background:#dcfce7; color:#166534;}
+
+  .my-eta{ position:absolute; left:16px; right:16px; z-index:9; background:var(--me); color:#fff;
+     border-radius:14px; padding:12px 16px; box-shadow:0 8px 20px rgba(37,99,235,.35); display:none; top:92px;}
+  .my-eta.show{ display:block;} .my-eta b{ font-size:20px;}
+
+  .sheet{ background:var(--card); border-top-left-radius:22px; border-top-right-radius:22px; box-shadow:0 -8px 24px rgba(24,24,50,.10);
+     padding:8px 18px calc(16px + env(safe-area-inset-bottom)); max-height:46%; overflow-y:auto; }
+  .grip{ width:40px; height:5px; background:#dcdde8; border-radius:3px; margin:6px auto 12px;}
+  .depart{ margin-bottom:14px;}
+  .grouphead{ font-size:13px; font-weight:700; margin:12px 0 8px; display:flex; align-items:center; gap:7px;}
+  .dot-sm{ width:9px;height:9px;border-radius:50%; display:inline-block;}
+  .g-coming{ color:#c2410c;} .g-arr{ color:#047857;}
+  .person{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #f2f3f8;}
+  .person:last-child{border-bottom:none;}
+  .person .av{ width:34px;height:34px;border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#fff; flex:0 0 auto;}
+  .person .info{ flex:1; min-width:0;}
+  .person .pname{ font-size:15px; font-weight:600;}
+  .person .bar{ height:5px; background:#eef0f7; border-radius:3px; margin-top:6px; overflow:hidden;}
+  .person .bar>span{ display:block; height:100%; background:var(--coming); border-radius:3px; transition:width .8s linear;}
+  .person .eta{ font-size:14px; font-weight:700; color:#c2410c; flex:0 0 auto; text-align:right;}
+  .person .eta small{ display:block; font-weight:500; color:var(--sub); font-size:11px;}
+  .arr-names{ font-size:15px; color:#374151; padding:6px 0; line-height:1.7;}
+  .empty{ color:#a7abbb; font-size:13px; padding:4px 0 8px;}
+
+  .toast{ position:absolute; left:50%; top:50%; transform:translate(-50%,0); z-index:30;
+     background:#111827; color:#fff; padding:11px 18px; border-radius:999px; font-size:14px; font-weight:600;
+     box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; transition:opacity .3s, transform .3s; pointer-events:none; max-width:82%; text-align:center;}
+  .toast.show{ opacity:1; transform:translate(-50%,-14px);}
+</style>
+</head>
+<body>
+<div id="phone">
+
+  <!-- ============ HOME ============ -->
+  <section class="screen active" id="home">
+    <span class="badgechip">PROTOTYPE</span>
+    <div class="logo">📍</div>
+    <h1>어디쯤</h1>
+    <p>모임을 만들고 초대하면,<br>당일 서로의 위치와 도착 시간을<br>지도에서 함께 봐요.</p>
+    <div class="stack">
+      <button class="btn btn-primary" onclick="go('create')">모임 만들기</button>
+      <button class="btn btn-ghost" onclick="joinByCode()">🔗 받은 초대 링크로 참여</button>
+    </div>
+    <div id="modeNote"></div>
+  </section>
+
+  <!-- ============ CREATE ============ -->
+  <section class="screen" id="create">
+    <div class="topbar"><button class="back" onclick="go('home')">←</button><h1>모임 만들기</h1></div>
+    <div class="body">
+      <div class="label">📍 모임 장소</div>
+      <input class="field" id="f_place" value="강남역" placeholder="장소를 검색하세요 (예: 강남역)">
+      <p class="muted" style="margin-top:6px">실제 지도 모드에서는 이 장소를 카카오 검색으로 좌표 변환해 목적지로 씁니다.</p>
+
+      <div class="row2">
+        <div><div class="label">📅 날짜</div><input class="field" id="f_date" value="7월 26일 (토)"></div>
+        <div><div class="label">⏰ 시간</div><input class="field" id="f_time" value="오후 7:00"></div>
+      </div>
+
+      <div class="label">✏️ 모임 이름 (선택)</div>
+      <input class="field" id="f_name" value="토요일 저녁 모임" placeholder="예: 동창회">
+    </div>
+    <div class="footer"><button class="btn btn-primary" onclick="createMeeting()">모임 만들기</button></div>
+  </section>
+
+  <!-- ============ INVITE ============ -->
+  <section class="screen" id="invite">
+    <div class="topbar"><button class="back" onclick="go('create')">←</button><h1>초대하기</h1></div>
+    <div class="body">
+      <div class="success-emoji">✅</div>
+      <p style="text-align:center;font-weight:700;margin:0 0 16px">모임이 만들어졌어요</p>
+      <div class="infocard" id="inviteCard"></div>
+      <div class="label">🔗 친구들에게 링크를 보내세요</div>
+      <div class="linkbox">
+        <code id="inviteLink">https://…</code>
+        <button class="copybtn" onclick="copyInvite()">복사</button>
+      </div>
+      <div class="row2" style="margin-top:12px">
+        <div><button class="btn btn-ghost" onclick="copyInvite()">링크 복사</button></div>
+        <div><button class="btn btn-line" onclick="openAsGuest()">새 탭에서 참여자로 열기</button></div>
+      </div>
+      <p class="muted" style="margin-top:10px">※ 테스트: <b>새 탭에서 참여자로 열기</b>를 누르면 다른 사람이 되어 접속됩니다. 두 탭 모두에서 “출발하기”를 누르면 서로의 실제 위치가 보입니다.</p>
+    </div>
+    <div class="footer"><button class="btn btn-primary" onclick="enterMeeting('나')">모임 화면으로 →</button></div>
+  </section>
+
+  <!-- ============ JOIN ============ -->
+  <section class="screen" id="join">
+    <div class="topbar"><button class="back" onclick="go('home')">←</button><h1>모임 초대</h1></div>
+    <div class="body">
+      <div class="infocard" id="joinCard"></div>
+      <p class="muted" style="text-align:center;margin:14px 0 0">👥 지금 <b id="joinCount">4</b>명 참여 중</p>
+      <div class="label">이름을 입력하고 참여하세요</div>
+      <input class="field" id="j_nick" placeholder="닉네임 (예: 민수)">
+      <p class="muted" style="margin-top:14px">※ 위치는 <b>‘출발’</b>을 눌러야만 공유되고, 목적지에 <b>도착하면 자동으로 꺼져요.</b></p>
+    </div>
+    <div class="footer"><button class="btn btn-primary" onclick="joinNow()">모임 참여하기</button></div>
+  </section>
+
+  <!-- ============ MAP ============ -->
+  <section class="screen" id="map">
+    <div class="maparea" id="maparea">
+      <div id="kakaoMap"></div>
+      <div class="mapbg" id="mapbg"></div>
+
+      <div class="mtopbar">
+        <div><div class="t" id="m_title">토요일 저녁 모임</div><div class="s" id="m_sub">📍 강남역 · 오후 7:00</div></div>
+        <button class="x" onclick="leaveMap()">✕</button>
+      </div>
+
+      <div class="modechip" id="modeChip"></div>
+      <div class="my-eta" id="myEta">🚶 목적지까지 <b id="myEtaVal">–</b> · <span id="myEtaSub">이동 중</span></div>
+    </div>
+
+    <div class="sheet">
+      <div class="grip"></div>
+      <button class="btn btn-primary depart" id="departBtn" onclick="toggleDepart()">🚶 나 출발하기</button>
+
+      <div class="grouphead g-coming"><span class="dot-sm" style="background:var(--coming)"></span> 오는 중 <span id="comingN"></span></div>
+      <div id="comingList"></div>
+
+      <div class="grouphead g-arr"><span class="dot-sm" style="background:var(--arrived)"></span> 도착 <span id="arrN"></span></div>
+      <div class="arr-names" id="arrList"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </section>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG  —  카카오 JavaScript 키를 넣으면 '실제 지도 모드'로 동작합니다.
+   비워두면 '데모 모드'(목업 지도 + 가상 이동)로 동작합니다.
+   ============================================================ */
+const CONFIG = {
+  KAKAO_JS_KEY: '6c468a75bc1c9f73ed5b21185f07361e',                 // ← 여기에 카카오 JavaScript 키를 붙여넣으세요
+  DEFAULT_COORD: {lat:37.497942, lng:127.027621}, // 강남역 (지오코딩 실패 시 폴백)
+  ARRIVE_RADIUS_M: 80,              // 이 반경(m) 안에 들어오면 '도착'
+  SPEED_KMH: 22,                    // ETA 추정 속도(도심 자동차 가정). 실제 경로 ETA는 백엔드 단계에서.
+};
+
+/* ---------- router & meeting text ---------- */
+function go(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active'); }
+function meetingText(){ return {
+  name: document.getElementById('f_name').value || '모임',
+  place: document.getElementById('f_place').value || '모임 장소',
+  date: document.getElementById('f_date').value, time: document.getElementById('f_time').value }; }
+function renderCards(){
+  const m=meetingText();
+  const html=`<h2>${m.name}</h2><div class="info-line">📍 ${m.place}</div>
+    <div class="info-line">📅 ${m.date}</div><div class="info-line">⏰ ${m.time}</div>`;
+  document.getElementById('inviteCard').innerHTML=html;
+  document.getElementById('joinCard').innerHTML=html;
+  document.getElementById('m_title').textContent=m.name;
+  document.getElementById('m_sub').textContent=`📍 ${m.place} · ${m.time}`;
+}
+['f_name','f_place','f_date','f_time'].forEach(id=>document.getElementById(id).addEventListener('input',renderCards));
+renderCards();
+/* ---------- meeting state + server API ---------- */
+let MEETING=null;
+
+async function createMeeting(){
+  const info=meetingText();
+  let dest=null;
+  if(KAKAO_READY){ dest=await geocodePromise(info.place); }
+  try{
+    const res=await fetch('/api/meetings',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:info.name,place:info.place,date:info.date,time:info.time,dest})}).then(r=>r.json());
+    MEETING={...info, id:res.id, dest};
+    renderInvite(res.id); go('invite');
+  }catch(e){ console.error(e); toast('모임 생성 실패 — 서버(npm start)가 실행 중인지 확인하세요'); }
+}
+function inviteLink(id){ return location.origin+'/?m='+id; }
+function renderInvite(id){ renderCards(); document.getElementById('inviteLink').textContent=inviteLink(id); }
+function copyInvite(){ const t=document.getElementById('inviteLink').textContent;
+  if(navigator.clipboard){ navigator.clipboard.writeText(t).then(()=>toast('링크를 복사했어요'),()=>toast(t)); } else toast(t); }
+function openAsGuest(){ const id=MEETING&&MEETING.id; if(!id){ toast('먼저 모임을 만들어 주세요'); return; } window.open(inviteLink(id),'_blank'); }
+
+function parseMeetingId(s){ const m=String(s).match(/[?&]m=([a-z0-9]+)/i); return m?m[1]:String(s).trim(); }
+async function joinByCode(){ const v=prompt('받은 초대 링크 또는 코드를 붙여넣으세요'); if(!v) return; await gotoJoin(parseMeetingId(v)); }
+async function gotoJoin(id){
+  try{
+    const info=await fetch('/api/meetings/'+id).then(r=>{ if(!r.ok) throw 0; return r.json(); });
+    MEETING={name:info.name,place:info.place,date:info.date,time:info.time,id:info.id,dest:info.dest};
+    document.getElementById('f_name').value=info.name; document.getElementById('f_place').value=info.place;
+    document.getElementById('f_date').value=info.date; document.getElementById('f_time').value=info.time;
+    renderCards(); document.getElementById('joinCount').textContent=info.count||0; go('join');
+  }catch(e){ toast('모임을 찾을 수 없어요'); go('home'); }
+}
+function joinNow(){ const n=(document.getElementById('j_nick').value||'').trim();
+  if(!n){ toast('닉네임을 입력해 주세요'); return; } enterMeeting(n); }
+
+/* deep link: /?m=<id> -> 참여 화면 */
+(function(){ const id=new URLSearchParams(location.search).get('m'); if(id){ gotoJoin(id); } })();
+
+/* ---------- toast ---------- */
+let toastTimer;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ---------- geo helpers ---------- */
+function haversineM(a,b){
+  const R=6371000, toR=x=>x*Math.PI/180;
+  const dLat=toR(b.lat-a.lat), dLng=toR(b.lng-a.lng);
+  const s=Math.sin(dLat/2)**2 + Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function offsetMeters(base, dxEast, dyNorth){ // meters -> latlng
+  const lat = base.lat + dyNorth/111320;
+  const lng = base.lng + dxEast/(111320*Math.cos(base.lat*Math.PI/180));
+  return {lat,lng};
+}
+function etaFromMeters(m){ return Math.max(1, Math.round((m/1000)/CONFIG.SPEED_KMH*60)); }
+function fmtDist(m){ return m>=1000 ? (m/1000).toFixed(1)+'km' : Math.round(m)+'m'; }
+
+/* ---------- avatar color ---------- */
+function initialsColor(name){ const c=['#ef4444','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#0ea5e9'];
+  let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))>>>0; return c[h%c.length]; }
+
+/* ============================================================
+   MAP ENGINE  —  mode: 'real' (kakao+GPS) or 'mock'
+   Each participant: {name,isMe,state:'idle'|'coming'|'arrived', eta, prog, ...}
+   ============================================================ */
+let sim=null, KAKAO_READY=false;
+
+function enterMeeting(nick){
+  if(!MEETING){ MEETING={...meetingText(), id:null, dest:null}; }
+  document.getElementById('m_title').textContent=MEETING.name;
+  document.getElementById('m_sub').textContent=`📍 ${MEETING.place} · ${MEETING.time||''}`;
+  document.getElementById('myEta').classList.remove('show'); resetDepartBtn();
+  go('map');
+  if(CONFIG.KAKAO_JS_KEY && KAKAO_READY){ initReal(nick); }
+  else { initMock(nick); }
+}
+function leaveMap(){
+  if(sim){
+    if(sim.timer) clearInterval(sim.timer);
+    if(sim.watchId!=null && navigator.geolocation) navigator.geolocation.clearWatch(sim.watchId);
+    if(sim.ws){ try{ sim.ws.close(); }catch(e){} }
+    if(sim.ovById) Object.values(sim.ovById).forEach(o=>o.setMap&&o.setMap(null));
+    if(sim.destOv) sim.destOv.setMap&&sim.destOv.setMap(null);
+  }
+  sim=null; go('home');
+}
+
+/* -------- shared list rendering -------- */
+function renderLists(){
+  const coming=sim.people.filter(p=>p.state==='coming');
+  const arrived=sim.people.filter(p=>p.state==='arrived');
+  document.getElementById('comingN').textContent='('+coming.length+')';
+  document.getElementById('arrN').textContent='('+arrived.length+')';
+
+  if(sim.me && sim.me.state==='coming' && sim.me.eta!=null){
+    document.getElementById('myEtaVal').textContent='약 '+sim.me.eta+'분';
+    document.getElementById('myEtaSub').textContent = sim.me.distM!=null ? fmtDist(sim.me.distM)+' 남음' : '이동 중';
+  }
+
+  const cl=document.getElementById('comingList');
+  if(!coming.length){ cl.innerHTML='<div class="empty">아직 오는 중인 사람이 없어요</div>'; }
+  else cl.innerHTML=coming.slice().sort((a,b)=>(a.eta||99)-(b.eta||99)).map(p=>{
+    const col=p.isMe?'var(--me)':'var(--coming)';
+    return `<div class="person">
+      <div class="av" style="background:${p.isMe?'#2563eb':initialsColor(p.name)}">${p.name[0]}</div>
+      <div class="info"><div class="pname">${p.name}${p.isMe?' (나)':''}</div>
+        <div class="bar"><span style="width:${Math.round(p.prog||0)}%;background:${col}"></span></div></div>
+      <div class="eta" style="${p.isMe?'color:var(--me)':''}">약 ${p.eta??'–'}분${p.distM!=null?`<small>${fmtDist(p.distM)}</small>`:''}</div>
+    </div>`; }).join('');
+
+  const al=document.getElementById('arrList');
+  al.innerHTML = arrived.length ? '✅ '+arrived.map(p=>p.name+(p.isMe?' (나)':'')).join('  ·  ')
+    : '<span class="empty">아직 도착한 사람이 없어요</span>';
+}
+
+/* ================= MOCK ENGINE (no key) ================= */
+function initMock(nick){
+  document.getElementById('kakaoMap').style.display='none';
+  document.getElementById('mapbg').classList.add('on');
+  buildMockBg();
+  const chip=document.getElementById('modeChip'); chip.className='modechip demo'; chip.textContent='● 데모 모드 (지도·위치 가상)';
+  const P=(name,color,angleDeg,dist,speed,state)=>({name,color,angle:angleDeg*Math.PI/180,dist,speed,state,eta:null,prog:0,distM:null});
+  const people=[ P('수아','',200,0,0,'arrived'), P('영훈','',20,0,0,'arrived'),
+                 P('민수','',150,0.62,0.020,'coming'), P('지훈','',300,0.30,0.030,'coming') ];
+  const me=P(nick||'나','',245,0.72,0.026,'idle'); me.isMe=true; people.push(me);
+  updateMockFields(people);
+  sim={mode:'mock', people, me, timer:null, watchId:null};
+  renderMockMarkers(); renderLists();
+  sim.timer=setInterval(()=>{ sim.people.forEach(p=>{ if(p.state==='coming'){ p.dist=Math.max(0,p.dist-p.speed);
+      if(p.dist<=0.05){ p.state='arrived'; p.dist=0; toast(`🎉 ${p.name} 님이 도착했어요`);} } });
+    updateMockFields(sim.people); renderMockMarkers(); renderLists();
+    if(sim.people.every(p=>p.state==='arrived')) clearInterval(sim.timer); }, 900);
+}
+function updateMockFields(people){ people.forEach(p=>{ if(p.state==='coming'){ p.eta=Math.max(1,Math.round(p.dist*22)); p.prog=(1-p.dist)*100; }}); }
+function renderMockMarkers(){
+  const area=document.getElementById('maparea');
+  area.querySelectorAll('.marker.mock').forEach(m=>m.remove());
+  const mk=(cls,x,y,html,op)=>{ const el=document.createElement('div'); el.className='marker mock '+cls;
+    el.style.left=x+'%'; el.style.top=y+'%'; if(op)el.style.opacity=op; el.innerHTML=html; area.appendChild(el); };
+  mk('dest',50,50,`<div class="flag">🏁</div><span class="nm">${meetingText().place}</span>`);
+  sim.people.forEach(p=>{ if(p.state==='arrived') return; if(p.state==='idle'&&!p.isMe) return;
+    const off=p.dist*40, x=50+Math.cos(p.angle)*off, y=50+Math.sin(p.angle)*off;
+    mk(p.isMe?'me':'coming', x, y, `<div class="dot"></div><span class="nm">${p.name}${p.state==='idle'?' (대기)':''}</span>`, p.state==='idle'?'.45':''); });
+}
+function buildMockBg(){ const bg=document.getElementById('mapbg'); bg.innerHTML='';
+  const add=(cls,st)=>{const d=document.createElement('div');d.className=cls;d.style.cssText=st;bg.appendChild(d);};
+  add('road h','top:30%');add('road h','top:66%');add('road v','left:36%');add('road v','left:72%');
+  add('block','left:6%;top:8%;width:22%;height:16%');add('block','left:44%;top:10%;width:20%;height:13%');
+  add('park','left:78%;top:34%;width:18%;height:26%');add('block','left:8%;top:40%;width:20%;height:18%');
+  add('block','left:44%;top:72%;width:22%;height:16%');add('park','left:6%;top:74%;width:22%;height:18%'); }
+
+/* ================= REAL ENGINE (kakao + GPS + WebSocket) =================
+   실제 다중 사용자: 참여자 목록/위치는 서버(state 메시지)가 진실의 원천.
+   내 GPS는 서버로 보내고, 화면은 서버가 되돌려준 상태로 그린다. */
+function initReal(nick){
+  document.getElementById('mapbg').classList.remove('on');
+  document.getElementById('kakaoMap').style.display='block';
+  const chip=document.getElementById('modeChip'); chip.className='modechip real'; chip.textContent='● 실제 지도 모드';
+
+  const kakao=window.kakao;
+  const map=new kakao.maps.Map(document.getElementById('kakaoMap'),
+    {center:new kakao.maps.LatLng(CONFIG.DEFAULT_COORD.lat,CONFIG.DEFAULT_COORD.lng), level:5});
+
+  sim={mode:'real', map, ws:null, myId:null, people:[], me:null, dest:null,
+       ovById:{}, destOv:null, watchId:null, sharing:false, startDist:{}};
+
+  const setDest=(coord,label)=>{
+    sim.dest=coord;
+    const c=new kakao.maps.LatLng(coord.lat,coord.lng); map.setCenter(c);
+    if(sim.destOv) sim.destOv.setMap(null);
+    sim.destOv=overlay(`<div class="marker dest"><div class="flag">🏁</div><span class="nm">${label}</span></div>`, c);
+  };
+
+  if(MEETING.dest && MEETING.dest.lat!=null){
+    setDest(MEETING.dest, MEETING.dest.label || MEETING.place); openWS(nick);
+  } else {
+    geocodePromise(MEETING.place).then(r=>{
+      const d = r || {...CONFIG.DEFAULT_COORD, label:MEETING.place};
+      MEETING.dest=d; setDest(d, d.label || MEETING.place);
+      if(!r) toast('장소를 못 찾아 기본 위치(강남역)로 표시해요');
+      openWS(nick);
+    });
+  }
+  renderLists();
+}
+function overlay(html, latlng){ const o=new kakao.maps.CustomOverlay({position:latlng,content:html,yAnchor:1,zIndex:5}); o.setMap(sim.map); return o; }
+
+/* -------- WebSocket -------- */
+function openWS(nick){
+  const proto=location.protocol==='https:'?'wss':'ws';
+  const ws=new WebSocket(`${proto}://${location.host}/ws`);
+  sim.ws=ws;
+  ws.onopen=()=>ws.send(JSON.stringify({t:'join', meetingId:MEETING.id, nick}));
+  ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
+    if(m.t==='joined'){ sim.myId=m.id; }
+    else if(m.t==='state'){ applyState(m); }
+    else if(m.t==='error'){ toast(m.msg); }
+  };
+  ws.onerror=()=>toast('서버 연결 오류 — npm start 실행 여부 확인');
+}
+
+function applyState(msg){
+  const prev = sim.people.reduce((a,p)=>(a[p.id]=p.state,a),{});
+  sim.people = (msg.participants||[]).map(p=>{
+    const isMe = p.id===sim.myId;
+    if(p.distM!=null) sim.startDist[p.id]=Math.max(sim.startDist[p.id]||0, p.distM);
+    const prog = (p.distM!=null && sim.startDist[p.id]) ? Math.max(0,Math.min(100,(1-p.distM/sim.startDist[p.id])*100)) : 0;
+    return {id:p.id, name:p.nick, isMe, state:p.state, eta:p.eta, distM:p.distM, prog, lat:p.lat, lng:p.lng};
+  });
+  sim.me = sim.people.find(p=>p.isMe) || null;
+
+  // 도착 토스트 (남의 도착)
+  sim.people.forEach(p=>{ if(!p.isMe && p.state==='arrived' && prev[p.id] && prev[p.id]!=='arrived') toast(`🎉 ${p.name} 님이 도착했어요`); });
+
+  updateRealOverlays();
+
+  // 내가 도착하면 공유 자동 종료
+  if(sim.me && sim.me.state==='arrived' && sim.sharing){
+    sim.sharing=false; stopMyGPS(false); resetDepartBtn();
+    document.getElementById('myEta').classList.remove('show'); toast('🎉 도착했어요! 위치 공유가 종료됐어요');
+  }
+  renderLists();
+}
+
+function updateRealOverlays(){
+  const kakao=window.kakao, seen=new Set();
+  sim.people.forEach(p=>{
+    if(p.lat==null || p.state!=='coming') return;  // 도착/미공유는 지도에서 제외
+    seen.add(p.id);
+    const ll=new kakao.maps.LatLng(p.lat,p.lng);
+    let ov=sim.ovById[p.id];
+    if(!ov){ ov=overlay(`<div class="marker ${p.isMe?'me':'coming'}"><div class="dot"></div><span class="nm">${p.name}${p.isMe?' (나)':''}</span></div>`, ll); sim.ovById[p.id]=ov; }
+    else ov.setPosition(ll);
+  });
+  Object.keys(sim.ovById).forEach(id=>{ if(!seen.has(id)){ sim.ovById[id].setMap(null); delete sim.ovById[id]; } });
+}
+
+/* -------- my GPS -------- */
+function startMyGPS(){
+  if(!navigator.geolocation){ toast('이 브라우저는 위치를 지원하지 않아요'); return false; }
+  sim.watchId=navigator.geolocation.watchPosition(pos=>{
+    const lat=pos.coords.latitude, lng=pos.coords.longitude;
+    if(sim.ws && sim.ws.readyState===1) sim.ws.send(JSON.stringify({t:'loc', lat, lng}));
+  }, err=>{ toast('위치 권한이 필요해요 (설정에서 허용)'); sim.sharing=false; stopMyGPS(true); resetDepartBtn(); document.getElementById('myEta').classList.remove('show');
+  }, {enableHighAccuracy:true, maximumAge:2000, timeout:10000});
+  return true;
+}
+function stopMyGPS(sendStop){
+  if(sim.watchId!=null && navigator.geolocation){ navigator.geolocation.clearWatch(sim.watchId); sim.watchId=null; }
+  if(sendStop && sim.ws && sim.ws.readyState===1) sim.ws.send(JSON.stringify({t:'stop'}));
+}
+
+/* -------- depart toggle (both modes) -------- */
+function toggleDepart(){
+  if(!sim) return;
+  if(sim.mode==='real'){
+    if(!sim.sharing){
+      if(!startMyGPS()) return;
+      sim.sharing=true; document.getElementById('myEta').classList.add('show'); setDepartBtn(true); toast('위치 공유를 시작했어요');
+    } else {
+      sim.sharing=false; stopMyGPS(true); document.getElementById('myEta').classList.remove('show'); setDepartBtn(false); toast('위치 공유를 멈췄어요');
+    }
+    return;
+  }
+  // mock mode
+  const me=sim.me;
+  if(me.state==='idle'){ me.state='coming'; document.getElementById('myEta').classList.add('show'); setDepartBtn(true); toast('위치 공유를 시작했어요'); }
+  else if(me.state==='coming'){ me.state='idle'; document.getElementById('myEta').classList.remove('show'); setDepartBtn(false); toast('위치 공유를 멈췄어요'); }
+  renderMockMarkers(); renderLists();
+}
+function setDepartBtn(sharing){ const db=document.getElementById('departBtn');
+  if(sharing){ db.textContent='🛑 공유 중지'; db.className='btn btn-line depart'; }
+  else { db.textContent='🚶 나 출발하기'; db.className='btn btn-primary depart'; } }
+function resetDepartBtn(){ setDepartBtn(false); }
+
+/* -------- kakao geocoding (place name -> coord), Promise -------- */
+function geocodePromise(query){
+  return new Promise(resolve=>{
+    const kakao=window.kakao;
+    if(!KAKAO_READY || !(kakao.maps.services && kakao.maps.services.Places)){ resolve(null); return; }
+    new kakao.maps.services.Places().keywordSearch(query, (data,status)=>{
+      if(status===kakao.maps.services.Status.OK && data.length){
+        resolve({lat:parseFloat(data[0].y), lng:parseFloat(data[0].x), label:data[0].place_name});
+      } else resolve(null);
+    });
+  });
+}
+
+/* -------- load kakao sdk if key present -------- */
+(function loadKakao(){
+  const note=document.getElementById('modeNote');
+  if(!CONFIG.KAKAO_JS_KEY){
+    note.innerHTML='ℹ️ 현재 <b>데모 모드</b>입니다. 실제 지도로 보려면 코드 상단 <code>CONFIG.KAKAO_JS_KEY</code>에 카카오 JavaScript 키를 넣고, <code>localhost</code>에서 여세요. (실행방법.md 참고)';
+    return;
+  }
+  const s=document.createElement('script');
+  s.src='https://dapi.kakao.com/v2/maps/sdk.js?appkey='+CONFIG.KAKAO_JS_KEY+'&libraries=services&autoload=false';
+  s.onload=()=>{
+    try{
+      window.kakao.maps.load(()=>{ KAKAO_READY=true;
+        note.innerHTML='✅ 카카오 키 감지됨 — <b>실제 지도 모드</b>로 동작합니다.'; });
+    }catch(e){
+      console.error('[kakao] maps.load 실패:', e);
+      note.innerHTML='⚠️ 카카오 지도 초기화 실패 — 콘솔(F12) 오류를 확인하세요. 지금은 데모 모드로 동작합니다.';
+    }
+  };
+  s.onerror=(e)=>{ console.error('[kakao] SDK 스크립트 로드 실패:', e);
+    note.innerHTML='⚠️ 카카오 SDK 로드 실패 — ①앱의 <b>카카오맵 사용 설정 ON</b> ②플랫폼 도메인에 <code>http://localhost:8000</code> 등록 ③몇 분 후 재시도. 콘솔(F12)도 확인하세요.'; };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

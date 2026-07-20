@@ -1,0 +1,23 @@
+# Render 배포 청사진 (Blueprint)
+# GitHub 저장소를 Render에 연결하면 이 파일로 자동 설정됩니다.
+services:
+  - type: web
+    name: eodijjeum
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    # data.json 영속화를 위한 디스크 (무료 플랜은 미지원 → 유료 플랜에서 활성화)
+    # disk:
+    #   name: data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # 실제 경로 ETA를 쓰려면 카카오 REST 키를 Render 대시보드 환경변수로 추가:
+      # - key: KAKAO_REST_KEY
+      #   sync: false
+      # 유료 디스크 사용 시:
+      # - key: DATA_FILE
+      #   value: /var/data/data.json

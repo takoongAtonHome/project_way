@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="theme-color" content="#4f46e5" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
 <title>어디쯤 · 프로토타입_git 연결 테스트</title>
 <style>
   :root{
@@ -266,22 +267,28 @@ async function createMeeting(){
   try{
     const res=await fetch('/api/meetings',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name:info.name,place:info.place,date:info.date,time:info.time,dest})}).then(r=>r.json());
-    MEETING={...info, id:res.id, dest};
-    renderInvite(res.id); go('invite');
+    MEETING={...info, id:res.id, secret:res.secret, dest};
+    renderInvite(res.id, res.secret); go('invite');
   }catch(e){ console.error(e); toast('모임 생성 실패 — 서버(npm start)가 실행 중인지 확인하세요'); }
 }
-function inviteLink(id){ return location.origin+'/?m='+id; }
-function renderInvite(id){ renderCards(); document.getElementById('inviteLink').textContent=inviteLink(id); }
+function inviteLink(id, secret){ return location.origin+'/?m='+encodeURIComponent(id)+'&k='+encodeURIComponent(secret); }
+function renderInvite(id, secret){ renderCards(); document.getElementById('inviteLink').textContent=inviteLink(id, secret); }
 function copyInvite(){ const t=document.getElementById('inviteLink').textContent;
   if(navigator.clipboard){ navigator.clipboard.writeText(t).then(()=>toast('링크를 복사했어요'),()=>toast(t)); } else toast(t); }
-function openAsGuest(){ const id=MEETING&&MEETING.id; if(!id){ toast('먼저 모임을 만들어 주세요'); return; } window.open(inviteLink(id),'_blank'); }
+function openAsGuest(){ const id=MEETING&&MEETING.id, secret=MEETING&&MEETING.secret; if(!id||!secret){ toast('먼저 모임을 만들어 주세요'); return; } window.open(inviteLink(id, secret),'_blank'); }
 
-function parseMeetingId(s){ const m=String(s).match(/[?&]m=([a-z0-9]+)/i); return m?m[1]:String(s).trim(); }
-async function joinByCode(){ const v=prompt('받은 초대 링크 또는 코드를 붙여넣으세요'); if(!v) return; await gotoJoin(parseMeetingId(v)); }
-async function gotoJoin(id){
+function parseInvite(s){
+  const str=String(s);
+  const mm=str.match(/[?&]m=([A-Za-z0-9]+)/);
+  if(!mm) return { id: str.trim(), secret: null };
+  const km=str.match(/[?&]k=([A-Za-z0-9_-]+)/);
+  return { id: decodeURIComponent(mm[1]), secret: km ? decodeURIComponent(km[1]) : null };
+}
+async function joinByCode(){ const v=prompt('받은 초대 링크 또는 코드를 붙여넣으세요'); if(!v) return; const {id,secret}=parseInvite(v); await gotoJoin(id, secret); }
+async function gotoJoin(id, secret){
   try{
     const info=await fetch('/api/meetings/'+id).then(r=>{ if(!r.ok) throw 0; return r.json(); });
-    MEETING={name:info.name,place:info.place,date:info.date,time:info.time,id:info.id,dest:info.dest};
+    MEETING={name:info.name,place:info.place,date:info.date,time:info.time,id:info.id,secret,dest:info.dest};
     document.getElementById('f_name').value=info.name; document.getElementById('f_place').value=info.place;
     document.getElementById('f_date').value=info.date; document.getElementById('f_time').value=info.time;
     renderCards(); document.getElementById('joinCount').textContent=info.count||0; go('join');
@@ -290,8 +297,8 @@ async function gotoJoin(id){
 function joinNow(){ const n=(document.getElementById('j_nick').value||'').trim();
   if(!n){ toast('닉네임을 입력해 주세요'); return; } enterMeeting(n); }
 
-/* deep link: /?m=<id> -> 참여 화면 */
-(function(){ const id=new URLSearchParams(location.search).get('m'); if(id){ gotoJoin(id); } })();
+/* deep link: /?m=<id>&k=<secret> -> 참여 화면 */
+(function(){ const p=new URLSearchParams(location.search); const id=p.get('m'); const k=p.get('k'); if(id){ gotoJoin(id, k); } })();
 
 /* ---------- toast ---------- */
 let toastTimer;
@@ -448,7 +455,7 @@ function openWS(nick){
   const proto=location.protocol==='https:'?'wss':'ws';
   const ws=new WebSocket(`${proto}://${location.host}/ws`);
   sim.ws=ws;
-  ws.onopen=()=>ws.send(JSON.stringify({t:'join', meetingId:MEETING.id, nick}));
+  ws.onopen=()=>ws.send(JSON.stringify({t:'join', meetingId:MEETING.id, nick, secret:MEETING.secret}));
   ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
     if(m.t==='joined'){ sim.myId=m.id; }
     else if(m.t==='state'){ applyState(m); }

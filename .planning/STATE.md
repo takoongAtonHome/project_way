@@ -23,7 +23,7 @@ See: .planning/PROJECT.md (updated 2026-07-30)
 Phase: 1 of 3 (프로덕션 배포)
 Plan: 0 of TBD in current phase
 Status: Ready to plan
-Last activity: 2026-07-30 — ROADMAP.md created, ready for /gsd-plan-phase 1
+Last activity: 2026-08-03 - Completed quick task 260803-fsj: 모임 join 보안 강화: 초대 링크에 secret 토큰 추가로 모임 ID 무작위 대입 방지
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -64,6 +64,12 @@ None yet.
 
 - Render 무료 플랜은 디스크가 없어 재배포 시 data.json이 초기화됨 — v1 범위 밖의 알려진 한계로 기록됨 (DEPLOY-03은 "같은 배포 세션 동안 유지"만 검증, 재배포 간 영속성은 v2 DATA-01에서 해결)
 - 카카오 지도가 안 뜨는 가장 흔한 원인: 배포 URL이 카카오 디벨로퍼스 Web 도메인에 미등록, 또는 지도/로컬 서비스 비활성화 (403)
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260803-fsj | 모임 join 보안 강화: 초대 링크에 secret 토큰 추가로 모임 ID 무작위 대입 방지 | 2026-08-03 | 0c88ddd | [260803-fsj-join-secret-id](./quick/260803-fsj-join-secret-id/) |
 
 ## Deferred Items
 

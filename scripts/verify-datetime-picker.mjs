@@ -264,6 +264,38 @@ async function main() {
       "a 'change' event listener is registered somewhere", 'no change listener found');
   });
 
+  // G. nextSaturdayISO
+  await check('G1. nextSaturdayISO(2026-09-01 Tue) === "2026-09-05"', async () => {
+    assertTrue(typeof helpers.nextSaturdayISO === 'function', 'nextSaturdayISO is a function', typeof helpers.nextSaturdayISO);
+    assertEqual('2026-09-05', helpers.nextSaturdayISO(new Date(2026, 8, 1)));
+  });
+  await check('G2. nextSaturdayISO(2026-09-05 Sat) === "2026-09-05" (same day)', async () => {
+    assertEqual('2026-09-05', helpers.nextSaturdayISO(new Date(2026, 8, 5)));
+  });
+  await check('G3. nextSaturdayISO(2026-09-06 Sun) === "2026-09-12"', async () => {
+    assertEqual('2026-09-12', helpers.nextSaturdayISO(new Date(2026, 8, 6)));
+  });
+
+  // H. gotoJoin이 서버 응답을 직접 대입하지 않고 applyISODateTime을 거친다
+  await check('H. gotoJoin() applies server response via applyISODateTime', async () => {
+    const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+    const body = scriptMatch[1];
+    const gotoJoinMatch = body.match(/async function gotoJoin\([^)]*\)\s*\{[\s\S]*?\n\}/);
+    assertTrue(!!gotoJoinMatch, 'gotoJoin function found', 'no match');
+    const fnBody = gotoJoinMatch[0];
+    assertTrue(/applyISODateTime\s*\(/.test(fnBody), 'gotoJoin calls applyISODateTime', fnBody);
+    assertTrue(!/f_date['"]\)\.value\s*=\s*info\.date/.test(fnBody), 'gotoJoin does not directly assign f_date.value = info.date', fnBody);
+    assertTrue(!/f_time['"]\)\.value\s*=\s*info\.time/.test(fnBody), 'gotoJoin does not directly assign f_time.value = info.time', fnBody);
+  });
+
+  // I. 서버 round-trip 후 재적용 경로가 형식 가드를 통과한다 (check D의 응답 재사용)
+  await check('I. round-tripped ISO values pass format guards and render Korean', async () => {
+    assertTrue(helpers.isISODate(roundTripDate), 'isISODate(roundTripDate) is true', roundTripDate);
+    assertTrue(helpers.isISOTime(roundTripTime), 'isISOTime(roundTripTime) is true', roundTripTime);
+    assertEqual('9월 5일 (토)', helpers.fmtDateKo(roundTripDate));
+    assertEqual('오후 7:00', helpers.fmtTimeKo(roundTripTime));
+  });
+
   console.log('ALL PASS');
   cleanup();
   process.exit(0);

@@ -223,6 +223,47 @@ async function main() {
     roundTripTime = getJson.time;
   });
 
+  // E. 5분 단위 반올림 보정
+  await check('E1. roundTimeTo5(07:03) === "07:05"', async () => {
+    assertTrue(typeof helpers.roundTimeTo5 === 'function', 'roundTimeTo5 is a function', typeof helpers.roundTimeTo5);
+    assertEqual('07:05', helpers.roundTimeTo5('07:03'));
+  });
+  await check('E2. roundTimeTo5(07:02) === "07:00"', async () => {
+    assertEqual('07:00', helpers.roundTimeTo5('07:02'));
+  });
+  await check('E3. roundTimeTo5(07:07) === "07:05"', async () => {
+    assertEqual('07:05', helpers.roundTimeTo5('07:07'));
+  });
+  await check('E4. roundTimeTo5(07:08) === "07:10"', async () => {
+    assertEqual('07:10', helpers.roundTimeTo5('07:08'));
+  });
+  await check('E5. roundTimeTo5(19:00) === "19:00" (already snapped)', async () => {
+    assertEqual('19:00', helpers.roundTimeTo5('19:00'));
+  });
+  await check('E6. roundTimeTo5(23:58) === "23:55" (clamped, no date rollover)', async () => {
+    assertEqual('23:55', helpers.roundTimeTo5('23:58'));
+  });
+  await check('E7. roundTimeTo5(00:02) === "00:00"', async () => {
+    assertEqual('00:00', helpers.roundTimeTo5('00:02'));
+  });
+  await check('E8. roundTimeTo5(09:30:00) === "09:30" (seconds stripped)', async () => {
+    assertEqual('09:30', helpers.roundTimeTo5('09:30:00'));
+  });
+  await check('E9. roundTimeTo5 malformed input yields empty string', async () => {
+    assertEqual('', helpers.roundTimeTo5(''));
+    assertEqual('', helpers.roundTimeTo5('오후 7시'));
+  });
+
+  // F. f_time change 리스너가 roundTimeTo5를 호출
+  await check('F. f_time has a change listener that calls roundTimeTo5', async () => {
+    const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+    const body = scriptMatch[1];
+    assertTrue(/f_time[\s\S]{0,2000}roundTimeTo5/.test(body),
+      'f_time change listener invokes roundTimeTo5', 'pattern not found');
+    assertTrue(/addEventListener\(\s*['"]change['"]/.test(body),
+      "a 'change' event listener is registered somewhere", 'no change listener found');
+  });
+
   console.log('ALL PASS');
   cleanup();
   process.exit(0);

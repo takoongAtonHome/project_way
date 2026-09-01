@@ -294,6 +294,13 @@ function renderCards(){
   document.getElementById('m_title').textContent=m.name;
   document.getElementById('m_sub').textContent=`📍 ${m.place} · ${fmtTimeKo(m.time)}`;
 }
+/** 서버에서 받은 date/time을 네이티브 입력에 재적용한다. ISO 형식이 아니면 대입하지 않고
+ *  현재 값을 유지한다 — 형식이 어긋난 문자열을 대입하면 브라우저가 .value를 조용히 비운다. */
+function applyISODateTime(dateVal, timeVal){
+  if(isISODate(dateVal)) document.getElementById('f_date').value=dateVal;
+  if(isISOTime(timeVal)) document.getElementById('f_time').value=timeVal;
+}
+document.getElementById('f_date').value=nextSaturdayISO(new Date());
 ['f_name','f_place','f_date','f_time'].forEach(id=>document.getElementById(id).addEventListener('input',renderCards));
 document.getElementById('f_time').addEventListener('change', ()=>{
   const el=document.getElementById('f_time');
@@ -334,7 +341,7 @@ async function gotoJoin(id, secret){
     const info=await fetch('/api/meetings/'+id).then(r=>{ if(!r.ok) throw 0; return r.json(); });
     MEETING={name:info.name,place:info.place,date:info.date,time:info.time,id:info.id,secret,dest:info.dest};
     document.getElementById('f_name').value=info.name; document.getElementById('f_place').value=info.place;
-    document.getElementById('f_date').value=info.date; document.getElementById('f_time').value=info.time;
+    applyISODateTime(info.date, info.time);
     renderCards(); document.getElementById('joinCount').textContent=info.count||0; go('join');
   }catch(e){ toast('모임을 찾을 수 없어요'); go('home'); }
 }

@@ -5,7 +5,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "verify:join-secret": "node scripts/verify-join-secret.mjs"
+    "verify:join-secret": "node scripts/verify-join-secret.mjs",
+    "verify:datetime-picker": "node scripts/verify-datetime-picker.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",

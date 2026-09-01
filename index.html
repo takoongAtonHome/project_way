@@ -295,6 +295,11 @@ function renderCards(){
   document.getElementById('m_sub').textContent=`📍 ${m.place} · ${fmtTimeKo(m.time)}`;
 }
 ['f_name','f_place','f_date','f_time'].forEach(id=>document.getElementById(id).addEventListener('input',renderCards));
+document.getElementById('f_time').addEventListener('change', ()=>{
+  const el=document.getElementById('f_time');
+  const snapped=roundTimeTo5(el.value);
+  if(snapped && snapped!==el.value){ el.value=snapped; renderCards(); }
+});
 renderCards();
 /* ---------- meeting state + server API ---------- */
 let MEETING=null;

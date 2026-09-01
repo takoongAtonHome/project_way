@@ -113,7 +113,14 @@ function extractDatetimeHelpers(html) {
     err.actual = `startIdx=${startIdx}, endIdx=${endIdx}`;
     throw err;
   }
-  const src = html.slice(startIdx, endIdx);
+  // 마커는 (여러 줄일 수 있는) 블록 주석(/* ... */) 안에 있으므로, 그 주석이 끝나는 `*/`
+  // 다음부터 시작 슬라이스를 잡고, 끝 마커 주석이 시작되는 `/*` 앞까지만 끝 슬라이스를 잡는다.
+  // 그래야 잘려나간 `/*`/`*/` 조각이 구문 오류나 의도치 않은 주석 스와핑을 일으키지 않는다.
+  const startCommentClose = html.indexOf('*/', startIdx);
+  const afterStartComment = startCommentClose === -1 ? startIdx : startCommentClose + 2;
+  const endCommentOpen = html.lastIndexOf('/*', endIdx);
+  const beforeEndComment = endCommentOpen === -1 ? endIdx : endCommentOpen;
+  const src = html.slice(afterStartComment, beforeEndComment);
   const returnStmt = `\nreturn { ${HELPER_NAMES.map(n => `${n}: (typeof ${n} !== 'undefined' ? ${n} : undefined)`).join(', ')} };\n`;
   // eslint-disable-next-line no-new-func
   const factory = new Function(src + returnStmt);

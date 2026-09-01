@@ -153,8 +153,8 @@
       <p class="muted" style="margin-top:6px">실제 지도 모드에서는 이 장소를 카카오 검색으로 좌표 변환해 목적지로 씁니다.</p>
 
       <div class="row2">
-        <div><div class="label">📅 날짜</div><input class="field" id="f_date" value="7월 26일 (토)"></div>
-        <div><div class="label">⏰ 시간</div><input class="field" id="f_time" value="오후 7:00"></div>
+        <div><div class="label">📅 날짜</div><input class="field" id="f_date" type="date" value="2026-09-05"></div>
+        <div><div class="label">⏰ 시간</div><input class="field" id="f_time" type="time" step="300" value="19:00"></div>
       </div>
 
       <div class="label">✏️ 모임 이름 (선택)</div>
@@ -209,7 +209,7 @@
       </div>
 
       <div class="modechip" id="modeChip"></div>
-      <div class="my-eta" id="myEta">🚶 목적지까지 <b id="myEtaVal">–</b> · <span id="myEtaSub">이동 중</span></div>
+      <div class="my-eta" id="myEta">🚶 목적지까지 <b id="myEtaVal">-</b> · <span id="myEtaSub">이동 중</span></div>
     </div>
 
     <div class="sheet">
@@ -242,6 +242,45 @@ const CONFIG = {
 /* ---------- router & meeting text ---------- */
 function go(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active'); }
+
+/* DATETIME-HELPERS:START — 순수 함수만 둔다. document/window/MEETING 등 외부 식별자 참조 금지
+   (검증 스크립트가 이 구획을 잘라내 new Function으로 단독 평가한다). */
+function isISODate(v){ return typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/.test(v); }
+function isISOTime(v){ return typeof v==='string' && /^\d{2}:\d{2}$/.test(v); }
+function fmtDateKo(v){
+  if(!isISODate(v)) return '';
+  const [y,m,d]=v.split('-').map(Number);
+  const w=['일','월','화','수','목','금','토'][new Date(y,m-1,d).getDay()];
+  return `${m}월 ${d}일 (${w})`;
+}
+function fmtTimeKo(v){
+  if(!isISOTime(v)) return '';
+  const [h,mi]=v.split(':').map(Number);
+  const ampm = h<12 ? '오전' : '오후';
+  const h12 = (h%12)===0 ? 12 : (h%12);
+  const mm = String(mi).padStart(2,'0');
+  return `${ampm} ${h12}:${mm}`;
+}
+function roundTimeTo5(v){
+  if(typeof v!=='string') return '';
+  const m=v.match(/^(\d{2}):(\d{2})(?::\d{2})?$/);
+  if(!m) return '';
+  const h=Number(m[1]), mi=Number(m[2]);
+  const total=h*60+mi;
+  let snapped=Math.round(total/5)*5;
+  if(snapped<0) snapped=0;
+  if(snapped>1435) snapped=1435;
+  const sh=Math.floor(snapped/60), sm=snapped%60;
+  return `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+}
+function nextSaturdayISO(base){
+  const days=(6-base.getDay()+7)%7;
+  const d=new Date(base.getFullYear(), base.getMonth(), base.getDate()+days);
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+/* DATETIME-HELPERS:END */
+
 function meetingText(){ return {
   name: document.getElementById('f_name').value || '모임',
   place: document.getElementById('f_place').value || '모임 장소',
@@ -249,11 +288,11 @@ function meetingText(){ return {
 function renderCards(){
   const m=meetingText();
   const html=`<h2>${m.name}</h2><div class="info-line">📍 ${m.place}</div>
-    <div class="info-line">📅 ${m.date}</div><div class="info-line">⏰ ${m.time}</div>`;
+    <div class="info-line">📅 ${fmtDateKo(m.date)}</div><div class="info-line">⏰ ${fmtTimeKo(m.time)}</div>`;
   document.getElementById('inviteCard').innerHTML=html;
   document.getElementById('joinCard').innerHTML=html;
   document.getElementById('m_title').textContent=m.name;
-  document.getElementById('m_sub').textContent=`📍 ${m.place} · ${m.time}`;
+  document.getElementById('m_sub').textContent=`📍 ${m.place} · ${fmtTimeKo(m.time)}`;
 }
 ['f_name','f_place','f_date','f_time'].forEach(id=>document.getElementById(id).addEventListener('input',renderCards));
 renderCards();
@@ -333,7 +372,7 @@ let sim=null, KAKAO_READY=false;
 function enterMeeting(nick){
   if(!MEETING){ MEETING={...meetingText(), id:null, dest:null}; }
   document.getElementById('m_title').textContent=MEETING.name;
-  document.getElementById('m_sub').textContent=`📍 ${MEETING.place} · ${MEETING.time||''}`;
+  document.getElementById('m_sub').textContent=`📍 ${MEETING.place} · ${fmtTimeKo(MEETING.time)}`;
   document.getElementById('myEta').classList.remove('show'); resetDepartBtn();
   go('map');
   if(CONFIG.KAKAO_JS_KEY && KAKAO_READY){ initReal(nick); }
